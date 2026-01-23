@@ -101,7 +101,10 @@ absl::StatusOr<uint64_t> Tf2HloArg::Fingerprint() const {
         tsl::Fingerprint64(tensorflow::DataType_Name(dtype_and_shape.dtype)));
 
     std::string serialized_shape;
-    if (!tsl::SerializeToStringDeterministic(dtype_and_shape.shape.AsProto(),
+    const tensorflow::TensorShape& shape_to_hash =
+        dtype_and_shape.static_shape.has_value() ? *dtype_and_shape.static_shape
+                                                 : dtype_and_shape.shape;
+    if (!tsl::SerializeToStringDeterministic(shape_to_hash.AsProto(),
                                              &serialized_shape)) {
       return absl::InternalError("Failed to serialize shape");
     }
@@ -178,7 +181,12 @@ absl::Status UpdateCompileMetadata(
     }
 
     // Update shape.
-    *metadata.mutable_args(i)->mutable_shape() = inputs[i].shape.AsProto();
+    if (inputs[i].static_shape.has_value()) {
+      *metadata.mutable_args(i)->mutable_shape() =
+          inputs[i].static_shape->AsProto();
+    } else {
+      *metadata.mutable_args(i)->mutable_shape() = inputs[i].shape.AsProto();
+    }
   }
   return absl::OkStatus();
 }
@@ -257,7 +265,11 @@ absl::StatusOr<Tf2HloResult> CompileTfToHlo(const Tf2HloArg& arg) {
   std::vector<TensorShape> arg_shapes;
   arg_shapes.reserve(arg.input_dtypes_and_shapes.size());
   for (const auto& input : arg.input_dtypes_and_shapes) {
-    arg_shapes.push_back(input.shape);
+    if (input.static_shape.has_value()) {
+      arg_shapes.push_back(*input.static_shape);
+    } else {
+      arg_shapes.push_back(input.shape);
+    }
   }
 
   bool use_tuple_args = false;

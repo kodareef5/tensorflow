@@ -16,6 +16,8 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_MLIR_TFRT_TRANSFORMS_IFRT_IFRT_TYPES_H_
 #define TENSORFLOW_COMPILER_MLIR_TFRT_TRANSFORMS_IFRT_IFRT_TYPES_H_
 
+#include <optional>
+
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/types.pb.h"
 
@@ -25,9 +27,13 @@ namespace ifrt_serving {
 struct DtypeAndShape {
   tensorflow::DataType dtype;
   tensorflow::TensorShape shape;
+  // If available, use static shape (the upper bound of the actual input shapes)
+  // for compilation and caching.
+  std::optional<tensorflow::TensorShape> static_shape;
 
   bool operator==(const DtypeAndShape& other) const {
-    return dtype == other.dtype && shape == other.shape;
+    return dtype == other.dtype && shape == other.shape &&
+           static_shape == other.static_shape;
   }
 };
 
