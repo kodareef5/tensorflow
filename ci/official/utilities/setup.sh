@@ -35,7 +35,10 @@ set -exo pipefail -o history -o allexport
 # above the location of this file (setup.sh). We could also use "git rev-parse
 # --show-toplevel", but that wouldn't work for non-git repos (like if someone
 # downloaded TF as a zip archive).
-export TFCI_GIT_DIR=$(cd $(dirname "$0"); realpath ../../)
+# Use BASH_SOURCE[0] when sourced, fallback to $0 when run directly.
+# shellcheck disable=SC2128
+TFCI_SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]:-$0}")
+export TFCI_GIT_DIR=$(cd "$TFCI_SCRIPT_DIR"; realpath ../../../)
 cd "$TFCI_GIT_DIR"
 
 # "TFCI" may optionally be set to the name of an env-type file with TFCI
@@ -126,6 +129,10 @@ if [[ $(uname -s) = MSYS_NT* ]]; then
 fi
 
 # Run all "tfrun" commands under Docker. See setup_docker.sh for details
+if [[ "$TFCI_GITHUB_ACTIONS" == "true" ]]; then
+  TFCI_DOCKER_ENABLE=0
+fi
+
 if [[ "$TFCI_DOCKER_ENABLE" == 1 ]]; then
   source ./ci/official/utilities/setup_docker.sh
 fi
